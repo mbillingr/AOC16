@@ -1,90 +1,9 @@
 from dataclasses import dataclass
 from typing import Literal, Self
 
+from utils import manhattan as mt
 from utils.puzzle import Puzzle
 from utils import parsing as p
-
-
-class ManhattanTurtle:
-    def __init__(
-        self,
-        x: int,
-        y: int,
-        direction: Literal["NORTH", "SOUTH", "EAST", "WEST"] = "NORTH",
-        ignore_direction_for_equality=True,
-    ):
-        self.x = x
-        self.y = y
-        self.direction = direction
-        self.ignore_direction_for_equality = ignore_direction_for_equality
-
-    def with_x(self, new_x: int) -> Self:
-        return ManhattanTurtle(
-            new_x, self.y, self.direction, self.ignore_direction_for_equality
-        )
-
-    def with_y(self, new_y: int) -> Self:
-        return ManhattanTurtle(
-            self.x, new_y, self.direction, self.ignore_direction_for_equality
-        )
-
-    def with_direction(
-        self, new_dir: Literal["NORTH", "SOUTH", "EAST", "WEST"]
-    ) -> Self:
-        return ManhattanTurtle(
-            self.x, self.y, new_dir, self.ignore_direction_for_equality
-        )
-
-    def __eq__(self, other):
-        if not isinstance(other, ManhattanTurtle):
-            return NotImplemented
-        if self.ignore_direction_for_equality:
-            return self.x == other.x and self.y == other.y
-        else:
-            return (
-                self.x == other.x
-                and self.y == other.y
-                and self.direction == other.direction
-            )
-
-    def __hash__(self):
-        if self.ignore_direction_for_equality:
-            return hash((self.x, self.y))
-        else:
-            return hash((self.x, self.y, self.direction))
-
-    def turn_right(self) -> Self:
-        match self.direction:
-            case "NORTH":
-                return self.with_direction("EAST")
-            case "EAST":
-                return self.with_direction("SOUTH")
-            case "SOUTH":
-                return self.with_direction("WEST")
-            case "WEST":
-                return self.with_direction("NORTH")
-
-    def turn_left(self) -> Self:
-        match self.direction:
-            case "NORTH":
-                return self.with_direction("WEST")
-            case "EAST":
-                return self.with_direction("NORTH")
-            case "SOUTH":
-                return self.with_direction("EAST")
-            case "WEST":
-                return self.with_direction("SOUTH")
-
-    def forward(self, dist: int) -> Self:
-        match self.direction:
-            case "NORTH":
-                return self.with_y(self.y + dist)
-            case "EAST":
-                return self.with_x(self.x + dist)
-            case "SOUTH":
-                return self.with_y(self.y - dist)
-            case "WEST":
-                return self.with_x(self.x - dist)
 
 
 PARSER = p.SeparatedList((p.Str("R") | p.Str("L")) + p.Number(), p.Str(", "))
@@ -98,15 +17,16 @@ class Part1(Puzzle):
         return PARSER.parse(input)
 
     def solve(self, parsed):
-        pos = ManhattanTurtle(0, 0)
+        pos = mt.Point(0, 0)
+        dir = mt.NORTH
         for turn, dist in parsed:
             match turn:
                 case "R":
-                    pos = pos.turn_right()
+                    dir = dir.turn_right()
                 case "L":
-                    pos = pos.turn_left()
-            pos = pos.forward(dist)
-        return abs(pos.x) + abs(pos.y)
+                    dir = dir.turn_left()
+            pos = pos + dir * dist
+        return abs(pos - mt.Point(0, 0))
 
 
 class Part2(Puzzle):
@@ -118,17 +38,18 @@ class Part2(Puzzle):
 
     def solve(self, parsed):
         visited = set()
-        pos = ManhattanTurtle(0, 0)
+        pos = mt.Point(0, 0)
+        dir = mt.NORTH
         for turn, dist in parsed:
             match turn:
                 case "R":
-                    pos = pos.turn_right()
+                    dir = dir.turn_right()
                 case "L":
-                    pos = pos.turn_left()
+                    dir = dir.turn_left()
             for _ in range(dist):
-                pos = pos.forward(1)
+                pos = pos + dir
                 if pos in visited:
-                    return abs(pos.x) + abs(pos.y)
+                    return abs(pos - mt.Point(0, 0))
                 visited.add(pos)
 
 
