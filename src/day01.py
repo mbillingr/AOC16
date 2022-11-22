@@ -1,6 +1,3 @@
-from dataclasses import dataclass
-from typing import Literal, Self
-
 from utils import manhattan as mt
 from utils.puzzle import Puzzle
 from utils import parsing as p

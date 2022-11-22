@@ -54,7 +54,7 @@ class Vect:
     def __mul__(self, other):
         match other:
             case int(n):
-                return Vect(self.x*n, self.y*n)
+                return Vect(self.x * n, self.y * n)
             case _:
                 return NotImplemented
 
