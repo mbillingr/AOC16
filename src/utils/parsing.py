@@ -110,7 +110,11 @@ class Whitespace(CharPredicate):
     """Parse strings with a leading whitespace character"""
 
     def __init__(self):
-        super().__init__(str.isspace)
+        super().__init__(_is_whitespace)
+
+
+def _is_whitespace(s):
+    return s.isspace() and "\n" not in s
 
 
 @dataclass
@@ -170,10 +174,14 @@ class Repeat(Parser):
         result = []
         while True:
             try:
-                x, src = self.item.apply(src)
-                result.extend(x)
+                x, newsrc = self.item.apply(src)
             except ParseError:
-                return result, src
+                break
+            if src == newsrc:
+                break
+            src = newsrc
+            result.extend(x)
+        return result, src
 
 
 @dataclass
@@ -256,3 +264,13 @@ class SeparatedList(Alternative):
 
 def _empty(_):
     return []
+
+
+class SkipWhitespace(Drop):
+    def __init__(self):
+        super().__init__(Repeat(Whitespace()))
+
+
+class Optional(Alternative):
+    def __init__(self, parser: Parser):
+        super().__init__(parser, Null())

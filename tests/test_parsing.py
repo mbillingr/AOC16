@@ -115,6 +115,11 @@ def test_parse_nonempty_repetition(src, expected):
         p.OneOrMore(p.AnyChar()).parse("")
 
 
+def test_nested_repetition_on_failing_parser_does_not_loop_infinitely():
+    sut = p.Repeat(p.Repeat(p.Str("x")))
+    assert sut.parse("abc") == []
+
+
 def test_parse_dependent():
     sut = p.Depends(p.AnyChar(), lambda chl: p.Str(chl[0]))
 
@@ -152,8 +157,24 @@ def test_separated_list(src, expected):
     sut = p.SeparatedList(p.Number(), p.Str(","))
     assert sut.parse(src) == expected
 
+
 def test_grouping():
-    assert p.Repeat(p.Group(p.Sequence(p.Str("A"), p.Str("B")))).parse("ABABABA") == [('A', 'B'), ('A', 'B'), ('A', 'B')]
+    assert p.Repeat(p.Group(p.Sequence(p.Str("A"), p.Str("B")))).parse("ABABABA") == [
+        ("A", "B"),
+        ("A", "B"),
+        ("A", "B"),
+    ]
+
+    sut = p.Group(p.Repeat(p.Digit()))
+    assert sut.parse("") == [()]
+
+    sut = p.SeparatedList(p.Group(p.Repeat(p.Digit())), p.Str(";"))
+    assert sut.parse("12;345") == [("1", "2"), ("3", "4", "5")]
+
+    sut = p.SeparatedList(
+        p.Group(p.Repeat(p.SkipWhitespace() + p.Number())), p.Str("\n")
+    )
+    assert sut.parse("   1   2\n   3   4") == [(1, 2), (3, 4)]
 
 
 def test_sugar():
