@@ -4,7 +4,8 @@ from utils import parsing as p
 
 
 PARSER = p.SeparatedList(
-    (p.Str("U") | p.Str("D") | p.Str("L") | p.Str("R")) * ..., p.Str("\n")
+    p.Group((p.Str("U") | p.Str("D") | p.Str("L") | p.Str("R")) * ...),
+    p.Str("\n"),
 )
 
 

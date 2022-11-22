@@ -3,7 +3,10 @@ from utils.puzzle import Puzzle
 from utils import parsing as p
 
 
-PARSER = p.SeparatedList((p.Str("R") | p.Str("L")) + p.Number(), p.Str(", "))
+PARSER = p.SeparatedList(
+    p.Group((p.Str("R") | p.Str("L")) + p.Number()),
+    p.Str(", "),
+)
 
 
 class Part1(Puzzle):

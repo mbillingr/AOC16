@@ -5,7 +5,7 @@ from utils import parsing as p
 
 def test_parse_any_char():
     sut = p.AnyChar()
-    assert sut.parse("xyz") == "x"
+    assert sut.parse("xyz") == ["x"]
 
 
 def test_any_char_fails_on_empty_string():
@@ -16,7 +16,7 @@ def test_any_char_fails_on_empty_string():
 
 def test_parse_specific_char():
     sut = p.Str("a")
-    assert sut.parse("abc") == "a"
+    assert sut.parse("abc") == ["a"]
 
 
 def test_fail_to_parse_char():
@@ -33,7 +33,7 @@ def test_char_fails_on_empty_string():
 
 def test_parse_empty_string():
     sut = p.Empty()
-    assert sut.parse("") == ""
+    assert sut.parse("") == []
 
 
 def test_fail_to_parse_empty_string():
@@ -44,7 +44,7 @@ def test_fail_to_parse_empty_string():
 
 @pytest.mark.parametrize("digit", "0123456789")
 def test_parse_digit(digit):
-    assert p.Digit().parse(digit) == digit
+    assert p.Digit().parse(digit) == [digit]
 
 
 @pytest.mark.parametrize("digit", "x+$O")
@@ -55,7 +55,7 @@ def test_parse_digit_fail(digit):
 
 @pytest.mark.parametrize("src", "1x+~O")
 def test_parse_predicate_char(src):
-    assert p.CharPredicate(lambda ch: True).parse(src) == src[0]
+    assert p.CharPredicate(lambda ch: True).parse(src) == [src[0]]
 
 
 @pytest.mark.parametrize("src", "1x+~O")
@@ -65,12 +65,12 @@ def test_parse_predicate_char_fail(src):
 
 
 def test_parse_sequence():
-    assert p.Sequence(p.AnyChar(), p.AnyChar()).parse("abcde") == ("a", "b")
-    assert p.Sequence(p.Str("a"), p.Str("b")).parse("abcde") == ("a", "b")
-    assert p.Sequence(p.Str("a"), p.Empty()).parse("a") == ("a", "")
+    assert p.Sequence(p.AnyChar(), p.AnyChar()).parse("abcde") == ["a", "b"]
+    assert p.Sequence(p.Str("a"), p.Str("b")).parse("abcde") == ["a", "b"]
+    assert p.Sequence(p.Str("a"), p.Empty()).parse("a") == ["a"]
     assert p.Sequence(
         p.Sequence(p.Str("a"), p.Str("b")), p.Sequence(p.Str("c"), p.Str("d"))
-    ).parse("abcde") == (("a", "b"), ("c", "d"))
+    ).parse("abcde") == ["a", "b", "c", "d"]
 
     with pytest.raises(p.ParseError):
         p.Sequence(p.Str("x"), p.Str("y")).parse("ay")
@@ -80,8 +80,8 @@ def test_parse_sequence():
 
 
 def test_parse_alternative():
-    assert p.Alternative(p.Str("a"), p.Str("b")).parse("abcde") == "a"
-    assert p.Alternative(p.Str("a"), p.Str("b")).parse("bcde") == "b"
+    assert p.Alternative(p.Str("a"), p.Str("b")).parse("abcde") == ["a"]
+    assert p.Alternative(p.Str("a"), p.Str("b")).parse("bcde") == ["b"]
 
     with pytest.raises(p.ParseError):
         p.Alternative(p.Str("a"), p.Str("b")).parse("cde")
@@ -116,31 +116,44 @@ def test_parse_nonempty_repetition(src, expected):
 
 
 def test_parse_dependent():
-    sut = p.Depends(p.AnyChar(), lambda ch: p.Str(ch))
+    sut = p.Depends(p.AnyChar(), lambda chl: p.Str(chl[0]))
 
-    assert sut.parse("xx") == ("x", "x")
-    assert sut.parse("yy") == ("y", "y")
+    assert sut.parse("xx") == ["x", "x"]
+    assert sut.parse("yy") == ["y", "y"]
     with pytest.raises(p.ParseError):
         sut.parse("xy")
 
 
 def test_parse_transform():
-    assert p.Transform(int, p.Digit()).parse("789") == 7
+    assert p.Transform(lambda x: int(x[0]), p.Digit()).parse("789") == 7
 
 
 def test_parse_number():
-    assert p.Number().parse("012") == 12
+    assert p.Number().parse("012") == [12]
 
 
 def test_parse_string():
-    assert p.Str("abc").parse("abcdef") == "abc"
+    assert p.Str("abc").parse("abcdef") == ["abc"]
 
 
-def test_separated_list():
+def test_ignore_parseresult():
+    assert p.Drop(p.Str("foo")).parse("foobar") == []
+
+
+@pytest.mark.parametrize(
+    "src, expected",
+    [
+        ("", []),
+        ("42", [42]),
+        ("123,456,789", [123, 456, 789]),
+    ],
+)
+def test_separated_list(src, expected):
     sut = p.SeparatedList(p.Number(), p.Str(","))
-    assert sut.parse("") == []
-    assert sut.parse("42") == [42]
-    assert sut.parse("123,456,789") == [123, 456, 789]
+    assert sut.parse(src) == expected
+
+def test_grouping():
+    assert p.Repeat(p.Group(p.Sequence(p.Str("A"), p.Str("B")))).parse("ABABABA") == [('A', 'B'), ('A', 'B'), ('A', 'B')]
 
 
 def test_sugar():

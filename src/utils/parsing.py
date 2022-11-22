@@ -56,7 +56,7 @@ class Empty(Parser):
     def apply(self, src: str) -> (Any, str):
         if src:
             raise ParseError(self, src)
-        return "", src
+        return [], src
 
     def __eq__(self, other):
         return isinstance(other, Empty)
@@ -67,7 +67,7 @@ class Null(Parser):
     (Useful as initializer for iteratively building parsers)"""
 
     def apply(self, src: str) -> (Any, str):
-        return "", src
+        return [], src
 
     def __eq__(self, other):
         return isinstance(other, Null)
@@ -82,7 +82,7 @@ class CharPredicate(Parser):
     def apply(self, src: str) -> (Any, str):
         if not src or not self.pred(src[0]):
             raise ParseError(self, src)
-        return src[0], src[1:]
+        return [src[0]], src[1:]
 
     def __eq__(self, other):
         return isinstance(other, CharPredicate) and self.pred == other.pred
@@ -106,6 +106,13 @@ class Digit(CharPredicate):
         super().__init__(str.isdigit)
 
 
+class Whitespace(CharPredicate):
+    """Parse strings with a leading whitespace character"""
+
+    def __init__(self):
+        super().__init__(str.isspace)
+
+
 @dataclass
 class Str(Parser):
     """Parse strings with specific prefix"""
@@ -115,7 +122,7 @@ class Str(Parser):
     def apply(self, src: str) -> (Any, str):
         if src.startswith(self.string):
             n = len(self.string)
-            return src[:n], src[n:]
+            return [src[:n]], src[n:]
         raise ParseError(self, src)
 
 
@@ -129,7 +136,7 @@ class Sequence(Parser):
     def apply(self, src: str) -> (Any, str):
         r1, s1 = self.first.apply(src)
         r2, s2 = self.second.apply(s1)
-        return (r1, r2), s2
+        return r1 + r2, s2
 
 
 @dataclass
@@ -164,7 +171,7 @@ class Repeat(Parser):
         while True:
             try:
                 x, src = self.item.apply(src)
-                result.append(x)
+                result.extend(x)
             except ParseError:
                 return result, src
 
@@ -181,11 +188,27 @@ class Transform(Parser):
         return self.func(r), s
 
 
-class OneOrMore(Transform):
+class Drop(Transform):
+    """Drop a parser's result"""
+
+    def __init__(self, parser: Parser):
+        super().__init__(_empty, parser)
+
+
+class Group(Transform):
+    def __init__(self, parser: Parser):
+        super().__init__(_group, parser)
+
+
+def _group(lst: list[Any]):
+    return [tuple(lst)]
+
+
+class OneOrMore(Sequence):
     """Repeatedly apply a parser until it fails - must succeed at least once"""
 
     def __init__(self, item: Parser):
-        super().__init__(_prepend, Sequence(item, Repeat(item)))
+        super().__init__(item, Repeat(item))
 
 
 class Depends(Parser):
@@ -200,7 +223,7 @@ class Depends(Parser):
         r1, s1 = self.first.apply(src)
         second = self.make_second(r1)
         r2, s2 = second.apply(s1)
-        return (r1, r2), s2
+        return r1 + r2, s2
 
 
 def compose(*funcs):
@@ -213,7 +236,7 @@ def compose(*funcs):
 
 
 class Number(Transform):
-    digits_to_int = compose("".join, int)
+    digits_to_int = compose("".join, int, lambda x: [x])
 
     def __init__(self):
         super().__init__(Number.digits_to_int, OneOrMore(Digit()))
@@ -223,23 +246,13 @@ class Number(Transform):
 class SeparatedList(Alternative):
     def __init__(self, item: Parser, separator: Parser):
         super().__init__(
-            Transform(
-                _prepend,
-                Sequence(
-                    item,
-                    Repeat(
-                        Transform(operator.itemgetter(1), Sequence(separator, item))
-                    ),
-                ),
+            Sequence(
+                item,
+                Repeat(Sequence(Drop(separator), item)),
             ),
-            Transform(_empty, Null()),
+            Null(),
         )
 
 
 def _empty(_):
     return []
-
-
-def _prepend(tup):
-    first, rest = tup
-    return [first] + rest
