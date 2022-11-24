@@ -42,6 +42,16 @@ class Parser(abc.ABC):
         return NotImplemented
 
 
+def as_parser(obj) -> Parser:
+    match obj:
+        case Parser():
+            return obj
+        case str(s):
+            return Str(s)
+        case _:
+            raise TypeError(f"Can't convert {type(obj)} to Parser")
+
+
 @dataclass
 class ParseError(Exception):
     """Could not parse the input string"""
@@ -115,6 +125,13 @@ class Whitespace(CharPredicate):
 
 def _is_whitespace(s):
     return s.isspace() and "\n" not in s
+
+
+class OneOf(CharPredicate):
+    """Parse strings that start with one of the given characters"""
+
+    def __init__(self, chars: str):
+        super().__init__(lambda ch: ch in chars)
 
 
 @dataclass
@@ -200,11 +217,13 @@ class Drop(Transform):
     """Drop a parser's result"""
 
     def __init__(self, parser: Parser):
+        parser = as_parser(parser)
         super().__init__(_empty, parser)
 
 
 class Group(Transform):
     def __init__(self, parser: Parser):
+        parser = as_parser(parser)
         super().__init__(_group, parser)
 
 
@@ -216,6 +235,7 @@ class OneOrMore(Sequence):
     """Repeatedly apply a parser until it fails - must succeed at least once"""
 
     def __init__(self, item: Parser):
+        item = as_parser(item)
         super().__init__(item, Repeat(item))
 
 
@@ -223,13 +243,12 @@ class Depends(Parser):
     """Match two parsers in sequence, but the second parser is constructed depending on the first's result"""
 
     def __init__(self, first: Parser, make_second: Callable[[Any], Parser]):
-        assert isinstance(first, Parser)
-        self.first = first
+        self.first = as_parser(first)
         self.make_second = make_second
 
     def apply(self, src: str) -> (Any, str):
         r1, s1 = self.first.apply(src)
-        second = self.make_second(r1)
+        second = as_parser(self.make_second(r1))
         r2, s2 = second.apply(s1)
         return r1 + r2, s2
 
@@ -248,6 +267,14 @@ class Number(Transform):
 
     def __init__(self):
         super().__init__(Number.digits_to_int, OneOrMore(Digit()))
+
+
+class String(Transform):
+    concatenate = compose("".join, lambda x: [x])
+
+    def __init__(self, parser: Parser):
+        parser = as_parser(parser)
+        super().__init__(String.concatenate, parser)
 
 
 @dataclass
