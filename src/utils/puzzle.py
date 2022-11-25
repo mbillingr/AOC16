@@ -1,4 +1,5 @@
 import abc
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional, Tuple
 
@@ -25,14 +26,22 @@ class Puzzle(abc.ABC):
 
     def run(self, filename: Optional[str] = None, wrong: Tuple[Any, ...] = ()):
         start = datetime.now()
-        if filename is not None:
-            with open(filename, "rt") as f:
-                input_str = f.read()
-        else:
-            input_str = ""
+        match filename:
+            case None:
+                input_str = ""
+            case DirectInput(inp):
+                input_str = inp
+            case _:
+                with open(filename, "rt") as f:
+                    input_str = f.read()
         result = self.solve(self.parse(input_str))
 
         if result in wrong:
             raise AssertionError(f"wrong result: {result}")
 
         print(f"{datetime.now() - start} -- {self.name}: {result}")
+
+
+@dataclass
+class DirectInput:
+    input: str
