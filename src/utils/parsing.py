@@ -134,6 +134,13 @@ class OneOf(CharPredicate):
         super().__init__(lambda ch: ch in chars)
 
 
+class NotOneOf(CharPredicate):
+    """Parse strings that start with neither of the given characters"""
+
+    def __init__(self, chars: str):
+        super().__init__(lambda ch: ch not in chars)
+
+
 @dataclass
 class Str(Parser):
     """Parse strings with specific prefix"""
@@ -301,3 +308,18 @@ class SkipWhitespace(Drop):
 class Optional(Alternative):
     def __init__(self, parser: Parser):
         super().__init__(parser, Null())
+
+
+class LowerLetter(OneOf):
+    def __init__(self):
+        super().__init__("abcdefghijklmnopqrstuvwxyz")
+
+
+class UpperLetter(OneOf):
+    def __init__(self):
+        super().__init__("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+
+class Letter(OneOf):
+    def __init__(self):
+        super().__init__("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
