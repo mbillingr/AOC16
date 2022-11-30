@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "aoc22"
+name = "aoc16"
 version = "0.1.0"
 description = ""
 authors = ["Martin Billinger <mbillingr@users.noreply.github.com>"]
